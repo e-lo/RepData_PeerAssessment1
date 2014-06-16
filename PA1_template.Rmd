@@ -58,22 +58,21 @@ median(stepsPerDay, na.rm=TRUE)
 ### Time series of average steps per 5 minute interval
 ```{r}
 # stepsPerInterval <- tapply(data$steps[!naSteps], data$interval[!naSteps], mean)
-# aggdatabyInterval <- aggregate(dt$steps, by=list(Category=dt$interval), FUN=mean, na.rm=TRUE)
 
-stepsPerInterval <- aggregate(data$steps, by=list(Category=data$interval) FUN=mean, na.rm=TRUE)
+stepsPerInterval <- aggregate(data$steps, by=list(Category=data$interval), FUN=mean, na.rm=TRUE)
+colnames(stepsPerInterval) <- c("interval", "AvgSteps")
 
-# create as timeseries 
-steps <- ts(stepsPerInterval, start=c(0), end=c(2355), deltat=5)
-ts.plot(steps, 
-        main="Average Steps per 5 Minute Interval from Midnight"
-        ylab="Mean Steps per 5-Min Time Interval", 
-        xlab="5 minute interval",
-        )
+plot(stepsPerInterval$interval, stepsPerInterval$AvgSteps, 
+     ylab="Avg # steps", 
+     xlab="5-minute interval", 
+     type="n")
+lines(stepsPerInterval$interval,stepsPerInterval$AvgSteps,  
+      type= "l")
 
 ```
 ### Most Active 5-Minute Interval
 ```{r}
-which.max(stepsPerInterval)
+stepsPerInterval[which.max(stepsPerInterval$AvgSteps),]
 ```
 
 ## Imputing missing values
@@ -95,26 +94,56 @@ length(naSteps[naSteps==TRUE])
 length(naSteps)
 ```
 
-### Devise a strategy for filling in all of the missing values in the dataset. 
+### Devise a strategy for filling in all of the missing values in the dataset. Create new dataset with missing data filled in.
 ```{r}
 
-# add another column to datafram with imputed steps
+# use average by interval to fill in missing data
+isteps <- merge(data, stepsPerInterval)
+isteps["steps"][is.na(isteps["steps"])] = isteps["AvgSteps"][is.na(isteps["steps"])] 
 
-isteps <- data.frame(numeric(length(data[,1])))
-colnames(isteps)<-c("isteps")
-datai <- cbind(data,isteps)
-datai[0:5,]
-
-for (i in isteps) {
-    if (is.na(i["steps"])){  #this not working, find out why
-        i["isteps"]<-2000  #replace with better estimate
-    }
-    else {
-        i["isteps"]<-i["steps"]
-    }
-    }
-datai[0:5,]
+isteps[1:5,]
+summary(isteps)
 ```
+
+### Does it make a difference to impute missing values?
+#### Make a histogram of the total number of steps taken each day
+```{r}
+
+iStepsPerDay <- tapply(isteps$steps, isteps$date, sum)
+
+hist(stepsPerDay, 
+     main="Frequency of Steps per Day (Without Imputed)",
+     breaks = seq(0, 25000, 1000),
+     col  = "green",
+     xlab = "Steps per Day",
+     ylab = "Frequency (n)",
+     )
+
+hist(iStepsPerDay, 
+     main="Frequency of Steps per Day (w/Imputed Values)",
+     breaks = seq(0, 25000, 1000),
+     col  = "blue",
+     xlab = "Steps per Day",
+     ylab = "Frequency (n)",
+     )
+```
+#### Calculate and report the mean and median total number of steps taken per day. 
+ * Do these values differ from the estimates from the first part of the assignment? 
+ * What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r}
+
+# Without imputation
+mean(stepsPerDay,na.rm = TRUE)
+median(stepsPerDay, na.rm=TRUE)
+
+# Withimputation
+mean(iStepsPerDay)
+median(iStepsPerDay)
+
+```
+
+ * there are not significant differences between mean with and without imputation b/c 
+ I used the mean of the interval. Although there are slight differences.
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
@@ -128,10 +157,39 @@ For this part the weekdays() function may be of some help here. Use the dataset 
 
 ```{r}
 
+isteps$day <- weekdays(as.Date(isteps$date))
+weekend <- subset(isteps, isteps$day == "Saturday" | isteps$day == "Sunday")
+weekday <- subset(isteps, !(isteps$day == "Saturday" | isteps$day == "Sunday"))
+
 ```
 
-### Make panel plot showing difference between weekend and weekday
+### Make panel plot showing difference between weekend and weekday day patterns
 
 ```{r}
 
+# resummarize by weekday and weekend
+steps_by_int_weekend <- aggregate(weekend$steps, 
+                                  by=list(Category=weekend$interval), 
+                                  FUN=mean, 
+                                  na.rm=TRUE)
+colnames(steps_by_int_weekend)<-c("interval","avgStepsWeekend")
+steps_by_int_weekday <- aggregate(weekday$steps, 
+                                  by=list(Category=weekday$interval), 
+                                  FUN=mean, 
+                                  na.rm=TRUE)
+colnames(steps_by_int_weekday)<-c("interval","avgStepsWeekday")
+
+steps_by_int <- merge(steps_by_int_weekday, steps_by_int_weekend)
+
+# panel plot
+
+library(lattice)
+
+xyplot(avgStepsWeekday + avgStepsWeekend ~ interval, 
+    data = steps_by_int,
+    type = "l",
+    main="Average Steps per 5-min Interval by Week/Weekday", 
+    ylab="Average Steps", 
+    xlab="Interval",
+    auto.key=TRUE)
 ```
