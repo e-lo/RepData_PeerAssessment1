@@ -192,4 +192,5 @@ xyplot(avgStepsWeekday + avgStepsWeekend ~ interval,
     ylab="Average Steps", 
     xlab="Interval",
     auto.key=TRUE)
+
 ```
